@@ -69,7 +69,7 @@ mkdir "$tmp_dir/$INST_FILE_DIR"
 
 for file in ${INST_FILE[@]}; do
 	if [ ! ${file:0:1} = "/" ]; then
-		message "Instance files must be declared with absolute paths!" ERROR
+		message "Instant files must be declared with absolute paths!" ERROR
 		clean_up
 		exit_with_error
 	fi

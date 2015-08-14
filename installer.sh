@@ -53,11 +53,18 @@ elif [ ! -z "`ls $LOGS | grep "$MAGIC-*"`" ]; then
 	esac
 fi
 
+if [ -f $PRE_INSTALLER ]; then
+	bash $PRE_INSTALLER
+fi
+
 if [ ! -z "$INST_FILE_DIR" ] && [ -d "$INST_FILE_DIR" ] && [ ! -z "`ls -A $INST_FILE_DIR`" ]; then
 	find_inst_file="`find "$INST_FILE_DIR" -maxdepth 1`"
 	first_flag=1
 
-	message "Install instance files..." NOTE
+	message "Instant files:" NOTE
+	message "`tree "$INST_FILE_DIR"`"
+
+	message "Install instant files..." NOTE
 
 	for inst_file in $find_inst_file; do
 		if [ $first_flag = 1 ]; then
@@ -76,7 +83,6 @@ if [ ! -z "$INST_FILE_DIR" ] && [ -d "$INST_FILE_DIR" ] && [ ! -z "`ls -A $INST_
 			mkdir -p "$dir"
 		fi
 
-		message "Copying file..."
 		cp -r "$inst_file" "$dir"
 	done
 fi

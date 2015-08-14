@@ -44,6 +44,6 @@ for package in ${TRACE_DEP[@]}; do
 		continue
 	fi
 
-	message "Installing [$package]"
+	message "Installing [$package]" NOTE
 	$orig_path/installer.sh $package
 done

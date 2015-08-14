@@ -8,6 +8,22 @@ source $orig_path/message.sh
 declare -a TRACE_DEP
 RETURN=
 
+is_optional() { # arg1: dep
+	local IFS_bak=$IFS
+	local is_opt=0
+
+	IFS=" "
+	for exp in $1; do
+		if [ $exp = "OPT" ]; then
+			is_opt=1
+		fi
+	done
+	IFS=$IFS_bak
+
+	RETURN=$is_opt
+	return
+}
+
 compare_version() { # arg1: src arg2: dest
 	local IFS_bak=$IFS
 	IFS="." read -a src <<< $1
@@ -54,6 +70,7 @@ check_version() { # arg1: version arg2+: version condition
 	local version_cond=$2
 	local state="EQ"
 	local is_compared=1
+	local is_opt=0
 
 	IFS=" "
 	for exp in ${version_cond[@]}; do
@@ -64,6 +81,9 @@ check_version() { # arg1: version arg2+: version condition
 			OR )
 				state=$exp
 				is_compared=1
+				;;
+			OPT )
+				is_opt=1
 				;;
 			* )
 				local version=$exp
@@ -91,9 +111,14 @@ check_version() { # arg1: version arg2+: version condition
 
 	if [ $state = "OR" ]; then
 		message "Dependency syntax error: expression ended with OR operator" ERROR
+		exit_with_error
 	fi
-	
-	RETURN=$is_compared
+
+	if [ $is_opt = 1 ] && [ $is_compared = 0 ]; then
+		RETURN=2
+	else
+		RETURN=$is_compared
+	fi
 	return
 }
 
@@ -109,7 +134,7 @@ check_deps() { # arg1: dependencies array
 		version_dep=${version_dep#(}
 		version_dep=${version_dep%)}
 
-		# five expressions: GT LT GE LE EQ NOT OR
+		# five expressions: GT LT GE LE EQ NOT OR OPT
 		# no expressions means EQ
 		# echo $version_dep
 		find_package $package_name
@@ -126,7 +151,7 @@ check_deps() { # arg1: dependencies array
 			check_version $version_found "$version_dep"
 			local is_compared=$RETURN
 
-			if [ ! $is_compared -eq 0 ]; then
+			if [ $is_compared = 1 ]; then
 				found_package_flag=1
 				break
 			fi
@@ -203,22 +228,23 @@ trace() { # arg1: package path arg2(optional): false for closing output
 			local packages=`find $SOURCES/* | grep -P "^$SOURCES/(.+/)?${dep%%-*}-[0-9]+((\.([0-9]+))+)?\.tar\.gz$"`
 		fi
 		IFS=$IFS_bak
+
+		local version_dep=${dep##*-}
+		version_dep=${version_dep#(}
+		version_dep=${version_dep%)}
+
 		for package in ${packages[@]}; do
 			local version=${package##*/}
 			version=${version##*-}
 			version=${version%.*}
 			version=${version%.*}
 
-			local version_dep=${dep##*-}
-			version_dep=${version_dep#(}
-			version_dep=${version_dep%)}
-
 			IFS=" \n"
 			check_version "$version" "$version_dep"
 			IFS="|"
 			local is_compared=$RETURN
 
-			if [ ! $is_compared -eq 0 ]; then
+			if [ $is_compared = 1 ]; then
 				message "[Found $package]"
 				trace $package
 				if [ ! $? = 0 ]; then
@@ -227,11 +253,21 @@ trace() { # arg1: package path arg2(optional): false for closing output
 				fi
 				has_installed=1
 				break
+			elif [ $is_compared = 2 ]; then
+				message "Cannot find package comparing optional dependency $dep, ignore" NOTE
+				has_installed=1
+				break
 			fi
 		done
 		IFS="|"
 
 		if [ $has_installed = 0 ]; then
+			is_optional $version_dep
+			if [ $RETURN = 1 ]; then
+				message "Cannot find optional dependency $dep, ignore" NOTE
+				break
+			fi
+
 			message "Can't find package $dep needed in sources" ERROR
 			clean_up
 			exit_with_error $1
