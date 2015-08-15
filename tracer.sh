@@ -224,24 +224,53 @@ trace() { # arg1: package path arg2(optional): false for closing output
 		local has_installed=0
 
 		local packages
+		local traced_packages
+		
+		traced_packages=`echo "${TRACE_DEP[@]}" | xargs -n 1 | grep -P "^($SOURCES/)?(.+/)?${dep%%-*}-[0-9]+((\.([0-9]+))+)?\.tar\.gz$" | xargs`
+		# echo [$packages]
+		# echo ["echo \"${TRACE_DEP[@]}\" | grep -P \"^$SOURCES/(.+/)?${dep%%-*}-[0-9]+((\.([0-9]+))+)?\.tar\.gz\""]
+
 		if [ ! -z "ls $SOURCES" ]; then
-			local packages=`find $SOURCES/* | grep -P "^$SOURCES/(.+/)?${dep%%-*}-[0-9]+((\.([0-9]+))+)?\.tar\.gz$"`
+			packages=`find $SOURCES/* | grep -P "^$SOURCES/(.+/)?${dep%%-*}-[0-9]+((\.([0-9]+))+)?\.tar\.gz$" | xargs`
 		fi
-		IFS=$IFS_bak
+
+		IFS_bak2=$IFS
+		IFS=" "
 
 		local version_dep=${dep##*-}
 		version_dep=${version_dep#(}
 		version_dep=${version_dep%)}
 
-		for package in ${packages[@]}; do
+		for package in $traced_packages; do
 			local version=${package##*/}
 			version=${version##*-}
 			version=${version%.*}
 			version=${version%.*}
 
-			IFS=" \n"
+			IFS_bak3=$IFS
+			IFS=" $'\n'$'\t'"
 			check_version "$version" "$version_dep"
-			IFS="|"
+			IFS=$IFS_bak3
+			local is_compared=$RETURN
+
+			if [ "$is_compared" = 1 ]; then
+				packages=""
+				message "Denpendency $dep has been traced(package $package), ignore" NOTE
+				has_installed=1
+				break
+			fi
+		done
+
+		for package in $packages; do
+			local version=${package##*/}
+			version=${version##*-}
+			version=${version%.*}
+			version=${version%.*}
+
+			IFS_bak3=$IFS
+			IFS=" $'\n'$'\t'"
+			check_version "$version" "$version_dep"
+			IFS=$IFS_bak3
 			local is_compared=$RETURN
 
 			if [ $is_compared = 1 ]; then
@@ -259,7 +288,7 @@ trace() { # arg1: package path arg2(optional): false for closing output
 				break
 			fi
 		done
-		IFS="|"
+		IFS=$IFS_bak2
 
 		if [ $has_installed = 0 ]; then
 			is_optional $version_dep

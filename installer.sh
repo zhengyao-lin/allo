@@ -78,7 +78,11 @@ if [ ! -z "$INST_FILE_DIR" ] && [ -d "$INST_FILE_DIR" ] && [ ! -z "`ls -A $INST_
 		fi
 		target="/${target#*/}"
 
-		dir="/${target%/*}"
+		if [ ! -z $ROOT_DIR ]; then
+			message "Redirected root directory $ROOT_DIR" WARNING
+		fi
+
+		dir="$ROOT_DIR/${target%/*}"
 		if [ ! -z "$dir" ] && [ ! -d "$dir" ]; then
 			mkdir -p "$dir"
 		fi
